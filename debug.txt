@@ -1,0 +1,256 @@
+Для начала пропиши это 
+
+ static Context context;
+
+        public static Context GetContext()
+        {
+            if (context == null)
+                context = new Context();
+
+            return context;
+        }
+
+===========================================
+
+Страница с авторизацией 
+ public partial class PageAuth : Page
+    {
+        public PageAuth()
+        {
+            InitializeComponent();
+        }
+
+        private void btnEnter_Click(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                Aptekar emp = new Context().Aptekars.FirstOrDefault(ap => ap.login == txbLogin.Text);
+
+                if (emp == null)
+
+                    throw new Exception("Пользователь не найден");
+                else if (emp.pass != txbPass.Text)
+                    throw new Exception("Не верные данные");
+                else NavigationService.Navigate(new PagePreporati());
+            }
+            catch (Exception ex)
+            {
+
+                MessageBox.Show(ex.Message);
+            }
+            
+            
+        }
+    }
+}
+
+===================================================================================
+
+Страница для редактирования и изменение 
+   public partial class pDoctorEdit : Page
+    {
+
+        Context db = Context.GetContext();
+        preporati _prep = new preporati();
+        
+
+        public pDoctorEdit(preporati prep)
+        {
+            InitializeComponent();
+
+            if (prep != null)
+            {
+                _prep = prep;
+            }
+            DataContext = _prep;
+
+        }
+
+        private void dtnSave_Click(object sender, RoutedEventArgs e)
+        {
+            
+            if (_prep.id == 0 )
+            {
+                db.preporatis.Add(_prep);
+            }
+            
+            try
+            {
+                db.SaveChanges();
+                NavigationService.Navigate(new PagePreporati());
+            }
+            catch (Exception )
+            {
+
+                MessageBox.Show("Убери выделение со строки");
+            }
+        }
+
+        private void btnMenu_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new PagePreporati());
+        }
+    }
+}
+
+А после пишем это в форме с данными
+
+    public partial class PagePreporati : Page
+    {
+        Context db = Context.GetContext();
+
+        public PagePreporati()
+        {
+            InitializeComponent();
+
+            grPreporati.ItemsSource = db.preporatis.ToList();
+        }
+
+        private void btnAdd_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new pDoctorEdit(null));
+        }
+
+        private void btnUpdate_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new pDoctorEdit((preporati)grPreporati.SelectedItem));
+        }
+
+		ЕСЛИ ПОЛУЧИТСЯ РАЗОБРАТСЯ, ТО ВОТ УДАЛЕНИЕ
+	private void btnDelete_Click(object sender, RoutedEventArgs e)
+        {
+            if (MessageBox.Show("Вы уверены, что хотите удалить?",
+                "Подтверждение удаления", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    db.Doctors.RemoveRange(dgDoctors.SelectedItems.Cast<Doctor>().ToList());
+                    db.SaveChanges();
+                    dgDoctors.ItemsSource = db.Doctors.ToList();
+                }
+                catch(System.InvalidOperationException)
+                {
+                    MessageBox.Show("У кого-то из удаляемых врачей есть записи");
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show(ex.Message);
+                }
+            }
+            dgDoctors.SelectedItem = null;
+        }
+
+        private void btnUpdateLine_Click(object sender, RoutedEventArgs e)
+        {
+            NavigationService.Navigate(new pAddEditDoctor((Doctor)((Button)sender).DataContext));
+        }
+    }
+}
+
+
+==========================================
+Партиал класс доктора 
+
+
+namespace TableOperations.Model
+{
+    public partial class Doctor
+    {
+        //public string FullName 
+        //{ 
+        //    get 
+        //    { 
+        //        return $"{LastName} {FirstName[0]}." + (MiddleName != null ? $" {MiddleName[0]}." : null) ; 
+        //    } 
+        //}
+
+        public string FullName
+        {
+            get
+            {
+                return $"{LastName} {FirstName} {MiddleName}";
+            }
+        }
+
+        public int TimesTomorrow
+        {
+            get
+            {
+                return Timetables.Count(t => t.Date == DateTime.Now.AddDays(1).Date);
+            }
+        }
+    }
+}
+
+
+
+
+
+XAML
+
+Страница с выводом данных из бд 
+<Page x:Class="TableOperations.Pages.pDoctors"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:TableOperations.Pages"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Доктора">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition />
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <DataGrid Name="dgDoctors">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Врач" Binding="{Binding FullName}" 
+                                    Width="2*"/>
+                <DataGridTextColumn Header="Записей на завтра" Binding="{Binding TimesTomorrow}" 
+                                    Width="*"/>
+                <DataGridTemplateColumn Width="*">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <Button Name="btnUpdateLine" Click="btnUpdateLine_Click">
+                                <Button.Content>
+                                    <TextBlock Text="Редактировать" FontSize="10" />
+                                </Button.Content>
+                            </Button>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>                        
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+        <StackPanel Orientation="Horizontal" Grid.Row="1">
+            <Button Name="btnInsert" Content="Добавить" Click="btnInsert_Click"/>
+            <Button Name="btnUpdate" Content="Изменить" Click="btnUpdate_Click"/>
+            <Button Name="btnDelete" Content="Удалить" Click="btnDelete_Click"/>
+        </StackPanel>
+    </Grid>
+</Page>
+
+
+Страница редактирования данных
+
+<Page x:Class="TableOperations.Pages.pAddEditDoctor"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+      xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:local="clr-namespace:TableOperations.Pages"
+      mc:Ignorable="d" 
+      d:DesignHeight="450" d:DesignWidth="800"
+      Title="Добавление/изменение информации о докторе">
+    <Grid>
+        <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+            <TextBlock Text="Фамилия"/>
+            <TextBox Name="tbLastName" Text="{Binding LastName}"/> 
+            <TextBlock Text="Имя"/>
+            <TextBox Name="tbFirstName" Text="{Binding FirstName}"/>
+            <TextBlock Text="Отчество"/>
+            <TextBox Name="tbMiddleName" Text="{Binding MiddleName}"/>
+            <Button Name="btnSave" Content="Сохранить" Click="btnSave_Click"/>
+        </StackPanel>
+    </Grid>
+</Page>
